@@ -441,3 +441,84 @@ Navigate to **[http://localhost:3000](http://localhost:3000)**.
 npm run build
 npm start
 ```
+
+---
+
+## 10. Production Deployment Guide
+
+### 10.1 Recommended Hosting Architecture
+
+| Tier | Component | Recommended Platform | Justification |
+| :--- | :--- | :--- | :--- |
+| **Frontend & API** | Next.js 16 App Router & Route Handlers | **Vercel** (or Netlify) | Native support for Next.js 16 Partial Prerendering, Cache Components, Turbopack, and automatic serverless API routing without maintaining servers. |
+| **Database & Auth** | PostgreSQL with RLS & Authentication | **Supabase** | Ready schema migration at `supabase/migrations/001_initial_schema.sql` and `supabase/seed.sql`. Managed database, secure client library (`@supabase/ssr`), and enterprise RLS policies. |
+| **Media Delivery** | Local assets & CDN | **Vercel Edge Network / Supabase Storage** | Fast partial-content streaming (`HTTP 206`) for commercial video reels and high-resolution visuals. |
+
+> **Note on Backend**: CreatorConnect AI utilizes an integrated monolithic architecture with Next.js App Router Route Handlers (`/api/generate-brief`, `/api/video-status`, `/api/public/creators`, `/api/public/briefs`). A separate Express/Node server is not required. If deploying in a containerized environment (such as Render or AWS ECS), use standard `npm run build && npm start` with Node.js 20+.
+
+---
+
+### 10.2 Step-by-Step Vercel Deployment
+
+#### Step 1: Push Code to GitHub
+Ensure all changes are committed and pushed to your GitHub repository:
+```bash
+git add .
+git commit -m "chore: prepare project for production deployment"
+git push origin main
+```
+
+#### Step 2: Import Project into Vercel
+1. Log in to your [Vercel Dashboard](https://vercel.com).
+2. Click **Add New** $\rightarrow$ **Project**.
+3. Select your GitHub repository containing CreatorConnect AI.
+4. Keep the default build settings:
+   - **Framework Preset**: `Next.js`
+   - **Root Directory**: `./`
+   - **Build Command**: `next build` (or leave default)
+   - **Output Directory**: `.next` (or leave default)
+   - **Install Command**: `npm install`
+
+#### Step 3: Configure Production Environment Variables in Vercel
+In the Vercel project configuration, expand **Environment Variables** and add:
+
+| Variable Name | Example / Target Value | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` | **Yes** | Public canonical URL for OpenGraph and routing |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xyzcompany.supabase.co` | Optional* | Supabase project endpoint (falls back to local store if omitted) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOi...` | Optional* | Client-side public key for Supabase queries |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOi...` | Optional | Server-only admin key (**never prefix with `NEXT_PUBLIC_`**) |
+| `LLM_API_KEY` | `sk-proj-...` | Optional | OpenAI or Gemini API key for dynamic brief generation |
+| `LLM_PROVIDER` | `openai` | Optional | LLM provider identifier (`openai` or `gemini`) |
+
+*\*If Supabase credentials are not provided, the platform automatically runs in reliable demo mode using the verified local store and seed data.*
+
+#### Step 4: Deploy
+Click **Deploy**. Vercel will build the Next.js application, bundle route handlers, optimize images, and deploy your live URL.
+
+---
+
+### 10.3 Supabase Database Setup (Optional for Live Remote DB)
+
+To connect a live PostgreSQL database instead of the offline store:
+
+1. Create a free project at [database.new](https://database.new).
+2. In your Supabase Dashboard, open the **SQL Editor**.
+3. Copy the contents of [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql) and execute it.
+4. (Optional) Run [`supabase/seed.sql`](supabase/seed.sql) to populate initial catalog tools and demo creators.
+5. In Supabase **Project Settings** $\rightarrow$ **API**, copy your **Project URL** and **anon public key**.
+6. Paste these into your Vercel Environment Variables.
+
+---
+
+### 10.4 Post-Deployment Verification Checklist
+
+Once deployed, verify the live website against these core checkpoints:
+
+- [ ] **Homepage & Showcase (`/`)**: Verify that the page loads with the marketplace hero, audited creator cards, and published briefs.
+- [ ] **Discovery & Facet Filtering (`/discover`)**: Test selecting tools (Runway, Midjourney), availability statuses, and price sliders.
+- [ ] **Portfolio Video Playback**: Click a video card on a creator profile to open `PortfolioModal`. Verify playback controls, sound toggles, and metadata tags.
+- [ ] **Authentication & Personas (`/login`)**: Test logging in with demo credentials or using the Quick-Switch persona buttons.
+- [ ] **AI-Assisted Brief Builder (`/brand/briefs/new`)**: Generate a campaign brief using natural language prompt. Verify form auto-population and manual editing.
+- [ ] **Shortlist & Invitations (`/brand/shortlist`, `/creator/invitations`)**: Verify sending campaign invites and responding from the creator dashboard.
+
