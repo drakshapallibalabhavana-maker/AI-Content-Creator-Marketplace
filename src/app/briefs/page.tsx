@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getAllBriefs } from '@/lib/store';
 import { CreativeBrief } from '@/types';
@@ -17,8 +17,21 @@ import {
 } from 'lucide-react';
 
 export default function BriefsListPage() {
-  const allBriefs = getAllBriefs().filter((b) => b.status === 'published');
+  const [allBriefs, setAllBriefs] = useState<CreativeBrief[]>(() =>
+    getAllBriefs().filter((b) => b.status === 'published')
+  );
   const [filterType, setFilterType] = useState<string>('all');
+
+  useEffect(() => {
+    fetch('/api/public/briefs')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setAllBriefs(data);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch public briefs:', err));
+  }, []);
 
   const filtered = filterType === 'all' ? allBriefs : allBriefs.filter((b) => b.content_type === filterType);
 

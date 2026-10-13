@@ -116,7 +116,7 @@ export default function NewBriefPage() {
     }
   };
 
-  const handleSaveBrief = (status: 'draft' | 'published') => {
+  const handleSaveBrief = async (status: 'draft' | 'published') => {
     setValidationErrors({});
 
     const formData = {
@@ -169,14 +169,47 @@ export default function NewBriefPage() {
     setIsSubmitting(true);
     try {
       const brandId = user?.id || 'brand-nike-demo';
-      const created = createBrief({
+      const briefPayload = {
         ...formData,
         brand_id: brandId,
         status,
+      };
+
+      // 1. Submit to API to persist in Supabase (or server fallback store)
+      const res = await fetch('/api/public/briefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(briefPayload),
       });
 
-      router.push(`/briefs/${created.id}`);
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson.error || `Server responded with status ${res.status}`);
+      }
+
+      const resData = await res.json();
+      const savedBrief = resData.brief || resData;
+      const targetId = savedBrief.id || resData.id;
+
+      if (!targetId) {
+        throw new Error('Database did not return a valid brief ID');
+      }
+
+      // 2. Also synchronize client local cache for immediate client-side availability
+      try {
+        createBrief({
+          ...briefPayload,
+          ...savedBrief,
+          id: targetId,
+        });
+      } catch (cacheErr) {
+        console.warn('Could not update local storage cache:', cacheErr);
+      }
+
+      // 3. Redirect to destination details route using the real database ID
+      router.push(`/briefs/${targetId}`);
     } catch (e: any) {
+      console.error('Error saving brief:', e);
       alert(e.message || 'Error creating brief');
       setIsSubmitting(false);
     }

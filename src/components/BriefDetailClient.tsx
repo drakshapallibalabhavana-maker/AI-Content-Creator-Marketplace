@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CreativeBrief, CreatorProfile } from '@/types';
-import { getMatchingCreatorsForBrief, closeBrief, createInvitation, getInvitations } from '@/lib/store';
+import { getMatchingCreatorsForBrief, closeBrief, createInvitation, getInvitations, getBriefById } from '@/lib/store';
 import VerificationBadge from './VerificationBadge';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -26,14 +26,64 @@ import {
 } from 'lucide-react';
 
 interface Props {
-  brief: CreativeBrief;
+  brief?: CreativeBrief | null;
+  briefId?: string;
 }
 
-export default function BriefDetailClient({ brief: initialBrief }: Props) {
+export default function BriefDetailClient({ brief: initialBrief, briefId }: Props) {
   const { user, role } = useAuth();
-  const [brief, setBrief] = useState<CreativeBrief>(initialBrief);
+  const [brief, setBrief] = useState<CreativeBrief | null>(() => {
+    if (initialBrief) return initialBrief;
+    if (briefId) {
+      const local = getBriefById(briefId);
+      if (local) return local;
+    }
+    return null;
+  });
   const [invitedCreators, setInvitedCreators] = useState<Record<string, boolean>>({});
   const [actionSuccess, setActionSuccess] = useState('');
+
+  useEffect(() => {
+    if (!brief && briefId) {
+      const local = getBriefById(briefId);
+      if (local) {
+        setBrief(local);
+      } else {
+        fetch('/api/public/briefs')
+          .then((res) => res.json())
+          .then((data: CreativeBrief[]) => {
+            if (Array.isArray(data)) {
+              const matched = data.find((b) => b.id === briefId);
+              if (matched) setBrief(matched);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [brief, briefId]);
+
+  if (!brief) {
+    return (
+      <div className="text-center py-24 space-y-4">
+        <div className="inline-flex p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
+          <FileText className="w-8 h-8 text-indigo-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Campaign Brief Not Found</h2>
+        <p className="text-xs text-slate-400 max-w-md mx-auto">
+          The requested brief {briefId ? `(ID: ${briefId})` : ''} could not be located in database or local records.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/briefs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all"
+          >
+            <span>Browse All Campaign Briefs</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate matching creators using deterministic ranking engine
   const matches = getMatchingCreatorsForBrief(brief);

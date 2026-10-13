@@ -410,16 +410,22 @@ export function getBriefById(id: string): CreativeBrief | undefined {
   return briefs.find((b) => b.id === id);
 }
 
-export function createBrief(brief: Omit<CreativeBrief, 'id' | 'created_at' | 'updated_at'>): CreativeBrief {
+export function createBrief(
+  brief: Omit<CreativeBrief, 'id' | 'created_at' | 'updated_at'> & {
+    id?: string;
+    created_at?: string;
+    updated_at?: string;
+  }
+): CreativeBrief {
   const list = getAllBriefs();
   const newBrief: CreativeBrief = {
     ...brief,
-    id: `b-${Date.now()}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    id: brief.id || `b-${Date.now()}`,
+    created_at: brief.created_at || new Date().toISOString(),
+    updated_at: brief.updated_at || new Date().toISOString(),
   };
 
-  const updatedList = [newBrief, ...list];
+  const updatedList = [newBrief, ...list.filter((b) => b.id !== newBrief.id)];
   saveStorage(STORAGE_KEYS.BRIEFS, updatedList);
   memoryBriefs = updatedList;
   return newBrief;
