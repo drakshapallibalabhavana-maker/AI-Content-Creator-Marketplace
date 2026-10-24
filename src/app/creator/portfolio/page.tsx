@@ -8,6 +8,7 @@ import { portfolioItemSchema } from '@/lib/validations';
 import { PortfolioItem } from '@/types';
 import VerificationBadge from '@/components/VerificationBadge';
 import PortfolioModal from '@/components/PortfolioModal';
+import AIVideoGenerator from '@/components/AIVideoGenerator';
 import {
   TOOLS_CATALOG,
   SKILLS_CATALOG,
@@ -412,6 +413,9 @@ export default function CreatorPortfolioPage() {
             </div>
           </form>
         )}
+
+        {/* Real AI Video Generation Studio */}
+        <AIVideoGenerator />
 
         {/* Existing Items Gallery */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

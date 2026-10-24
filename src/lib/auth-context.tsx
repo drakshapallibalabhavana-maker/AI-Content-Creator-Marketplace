@@ -50,13 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         setUser(JSON.parse(stored));
       } else {
-        // Default to demo brand so reviewers can immediately interact
-        setUser(DEMO_USERS.brand);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEMO_USERS.brand));
+        setUser(null);
       }
     } catch (e) {
       console.error('Error reading auth state:', e);
-      setUser(DEMO_USERS.brand);
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const lowerEmail = email.toLowerCase().trim();
+      if (!lowerEmail || !lowerEmail.includes('@') || lowerEmail.length < 5) {
+        throw new Error('Please enter a valid email address');
+      }
+
       let matchedUser: UserProfile;
 
       if (lowerEmail.includes('creator') || lowerEmail.includes('elena') || forcedRole === 'creator') {

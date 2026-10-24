@@ -71,6 +71,17 @@ export default function NewBriefPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+
+  // Synchronize authenticated brand identity
+  React.useEffect(() => {
+    if (user?.company_name) {
+      setBrandName(user.company_name);
+    } else if (user?.full_name && (!brandName || brandName === 'Apex Athletics')) {
+      setBrandName(user.full_name);
+    }
+  }, [user]);
 
   // AI Generation Trigger
   const handleAIGenerate = async (e: React.FormEvent) => {
@@ -79,6 +90,7 @@ export default function NewBriefPage() {
 
     setAiLoading(true);
     setAiNotice('');
+    setSubmitError('');
     try {
       const res = await fetch('/api/generate-brief', {
         method: 'POST',
@@ -103,11 +115,19 @@ export default function NewBriefPage() {
         if (data.styles && data.styles.length) setStyles(data.styles);
         if (data.creative_direction) setCreativeDirection(data.creative_direction);
         if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
+        if (data.resolution) setResolution(data.resolution);
+        if (data.duration_seconds !== undefined && data.duration_seconds !== null) {
+          setDurationSeconds(Number(data.duration_seconds));
+        }
+        if (data.deliverables_count) setDeliverablesCount(Number(data.deliverables_count));
         if (data.intended_platforms && data.intended_platforms.length) setIntendedPlatforms(data.intended_platforms);
+        if (data.intended_usage_rights) setIntendedUsageRights(data.intended_usage_rights);
+        if (data.budget_min) setBudgetMin(Number(data.budget_min));
+        if (data.budget_max) setBudgetMax(Number(data.budget_max));
         if (data.preferred_tools && data.preferred_tools.length) setPreferredTools(data.preferred_tools);
         if (data.preferred_skills && data.preferred_skills.length) setPreferredSkills(data.preferred_skills);
 
-        setAiNotice('Campaign idea parsed and applied to form below. You can review and adjust all terms.');
+        setAiNotice(`Campaign extracted: ${data.content_type.toUpperCase()} format (${data.aspect_ratio}) with ${data.deliverables_count} deliverable(s) and ${data.intended_usage_rights} licensing terms.`);
       }
     } catch (err: any) {
       setAiNotice('Rule-based parser processed your concept. Review all terms below.');
@@ -117,7 +137,11 @@ export default function NewBriefPage() {
   };
 
   const handleSaveBrief = async (status: 'draft' | 'published') => {
+    if (isSubmitting) return;
+
     setValidationErrors({});
+    setSubmitError('');
+    setSubmitSuccess('');
 
     const formData = {
       title,
@@ -129,15 +153,15 @@ export default function NewBriefPage() {
       styles,
       creative_direction: creativeDirection,
       aspect_ratio: aspectRatio,
-      duration_seconds: durationSeconds,
+      duration_seconds: durationSeconds ? Number(durationSeconds) : undefined,
       resolution,
-      deliverables_count: deliverablesCount,
+      deliverables_count: Number(deliverablesCount) || 1,
       intended_platforms: intendedPlatforms,
       budget_min: Number(budgetMin),
       budget_max: Number(budgetMax),
       currency,
       deadline,
-      revision_rounds: Number(revisionRounds),
+      revision_rounds: Number(revisionRounds) || 2,
       preferred_skills: preferredSkills,
       required_skills: [],
       preferred_tools: preferredTools,
@@ -162,6 +186,8 @@ export default function NewBriefPage() {
         errMap[fieldName] = issue.message;
       });
       setValidationErrors(errMap);
+      setSubmitError('Please resolve the highlighted validation errors before publishing.');
+      setActiveTab('edit');
       window.scrollTo({ top: 300, behavior: 'smooth' });
       return;
     }
@@ -206,11 +232,14 @@ export default function NewBriefPage() {
         console.warn('Could not update local storage cache:', cacheErr);
       }
 
-      // 3. Redirect to destination details route using the real database ID
-      router.push(`/briefs/${targetId}`);
+      // 3. Inform user and redirect
+      setSubmitSuccess(`Brief "${savedBrief.title}" successfully ${status === 'published' ? 'published' : 'saved'}! Redirecting...`);
+      setTimeout(() => {
+        router.push(`/briefs/${targetId}`);
+      }, 500);
     } catch (e: any) {
       console.error('Error saving brief:', e);
-      alert(e.message || 'Error creating brief');
+      setSubmitError(e.message || 'Error creating brief. Please check your network connection and try again.');
       setIsSubmitting(false);
     }
   };
@@ -312,6 +341,20 @@ export default function NewBriefPage() {
             <span>Review Live Brief</span>
           </button>
         </div>
+
+        {submitError && (
+          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2 shadow-lg">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+
+        {submitSuccess && (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 shadow-lg">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <span>{submitSuccess}</span>
+          </div>
+        )}
 
         {/* SECTION 1: Form View */}
         {activeTab === 'edit' ? (
@@ -668,20 +711,38 @@ export default function NewBriefPage() {
                 type="button"
                 onClick={() => handleSaveBrief('draft')}
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 disabled:opacity-60 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                <span>Save as Draft</span>
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save as Draft</span>
+                  </>
+                )}
               </button>
 
               <button
                 type="button"
                 onClick={() => handleSaveBrief('published')}
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
               >
-                <Send className="w-4 h-4" />
-                <span>Publish Campaign Brief</span>
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Publishing Brief...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Publish Campaign Brief</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -694,7 +755,7 @@ export default function NewBriefPage() {
               <p className="text-xs text-slate-400 mt-1">{campaignGoal}</p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-850 text-xs leading-relaxed text-slate-300 whitespace-pre-line">
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-855 text-xs leading-relaxed text-slate-300 whitespace-pre-line">
               {description || 'No description provided.'}
             </div>
 
@@ -720,15 +781,27 @@ export default function NewBriefPage() {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
               <button
                 onClick={() => setActiveTab('edit')}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300"
+                disabled={isSubmitting}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-750 transition-colors"
               >
                 Back to Edit
               </button>
               <button
                 onClick={() => handleSaveBrief('published')}
-                className="px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white"
+                disabled={isSubmitting}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
               >
-                Confirm & Publish Brief
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Publishing Brief...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Confirm & Publish Brief</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

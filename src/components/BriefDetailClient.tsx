@@ -298,7 +298,7 @@ export default function BriefDetailClient({ brief: initialBrief, briefId }: Prop
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {matches.map(({ creator, matchScore, matchReasons }) => {
+          {matches.map(({ creator, matchScore, matchReasons, rightsMismatch, rightsNote }) => {
             const isInvited = invitedCreators[creator.id];
             return (
               <div
@@ -312,9 +312,12 @@ export default function BriefDetailClient({ brief: initialBrief, briefId }: Prop
                         <img src={creator.avatar_url} alt={creator.display_name} className="w-full h-full object-cover" />
                       </div>
                       <div>
-                        <Link href={`/creators/${creator.id}`} className="font-bold text-white hover:text-indigo-400 text-sm">
-                          {creator.display_name}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link href={`/creators/${creator.id}`} className="font-bold text-white hover:text-indigo-400 text-sm">
+                            {creator.display_name}
+                          </Link>
+                          <VerificationBadge level={creator.verification_level} size="sm" />
+                        </div>
                         <p className="text-[11px] text-slate-400 truncate max-w-[160px]">{creator.headline}</p>
                       </div>
                     </div>
@@ -325,6 +328,14 @@ export default function BriefDetailClient({ brief: initialBrief, briefId }: Prop
                       </span>
                     </div>
                   </div>
+
+                  {/* Commercial Rights Mismatch Advisory */}
+                  {rightsMismatch && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-0.5">
+                      <span className="font-bold text-amber-400 block">Commercial Clearance Notice:</span>
+                      <p>{rightsNote || 'Commercial licensing terms require custom contract confirmation.'}</p>
+                    </div>
+                  )}
 
                   {/* Match Reasons Checklist */}
                   <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-850 text-[11px] space-y-1">

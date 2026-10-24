@@ -24,17 +24,34 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    setError('');
+
+    if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (password.length < 4) {
+      setError('Password must be at least 4 characters');
       return;
     }
 
     setLoading(true);
     try {
       await login(email);
-      router.push('/discover');
+      const lower = email.toLowerCase();
+      if (lower.includes('creator') || lower.includes('elena')) {
+        router.push('/creator/dashboard');
+      } else {
+        router.push('/brand/dashboard');
+      }
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Login failed. Please verify your credentials.');
     } finally {
       setLoading(false);
     }

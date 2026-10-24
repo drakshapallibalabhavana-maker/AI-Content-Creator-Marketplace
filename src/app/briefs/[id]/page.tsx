@@ -4,7 +4,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/client';
 import BriefDetailClient from '@/components/BriefDetailClient';
 import { CreativeBrief } from '@/types';
 
-export const instant = false;
+
 
 export default async function BriefPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

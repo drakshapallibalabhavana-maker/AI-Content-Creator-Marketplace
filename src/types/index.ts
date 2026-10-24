@@ -4,7 +4,17 @@ export type ContentType = 'video' | 'animation' | 'image' | 'audio' | 'mixed';
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5';
 export type AvailabilityStatus = 'available' | 'busy' | 'unavailable';
 export type BriefStatus = 'draft' | 'published' | 'closed';
-export type InvitationStatus = 'invited' | 'accepted' | 'declined';
+export type ProjectStatus =
+  | 'invited'
+  | 'accepted'
+  | 'in_production'
+  | 'delivered'
+  | 'revision_requested'
+  | 'approved'
+  | 'declined'
+  | 'cancelled';
+
+export type InvitationStatus = ProjectStatus;
 export type VerificationLevel = 'self_declared' | 'evidence_submitted' | 'verified' | 'rejected';
 export type CommercialRights = 'organic' | 'paid_media' | 'broadcast';
 export type CommercialUseStatus = 'available' | 'restricted' | 'editorial_only';
@@ -138,6 +148,15 @@ export interface ShortlistItem {
   created_at: string;
 }
 
+export interface StatusTransitionRecord {
+  from_status: ProjectStatus;
+  to_status: ProjectStatus;
+  timestamp: string;
+  user_id: string;
+  user_role: UserRole;
+  notes?: string;
+}
+
 export interface InvitationItem {
   id: string;
   brief_id: string;
@@ -146,9 +165,16 @@ export interface InvitationItem {
   brief?: CreativeBrief;
   creator?: CreatorProfile;
   message?: string;
-  status: InvitationStatus;
+  status: ProjectStatus;
   created_at: string;
   responded_at?: string;
+  // Production deliverable & review fields
+  deliverable_url?: string;
+  deliverable_notes?: string;
+  delivered_at?: string;
+  revision_notes?: string;
+  approved_at?: string;
+  history?: StatusTransitionRecord[];
 }
 
 export interface VerificationRecord {

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getCreatorById } from '@/lib/store';
 import CreatorProfileClient from '@/components/CreatorProfileClient';
 
-export const instant = false;
+
 
 export default async function CreatorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

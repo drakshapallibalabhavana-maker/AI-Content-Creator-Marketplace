@@ -59,79 +59,83 @@ export default function Navbar() {
               </div>
             </Link>
 
-            {/* Main Navigation Links */}
-            <nav className="hidden md:flex items-center space-x-1 ml-8">
-              <Link
-                href="/discover"
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/discover')
-                    ? 'bg-slate-800 text-white shadow-inner'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <Compass className="w-4 h-4 text-indigo-400" />
-                <span>Discover Creators</span>
-              </Link>
+            {/* Main Navigation Links - Only displayed when authenticated */}
+            {currentUser && (
+              <nav className="hidden md:flex items-center space-x-1 ml-8">
+                <Link
+                  href="/discover"
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive('/discover')
+                      ? 'bg-slate-800 text-white shadow-inner'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Compass className="w-4 h-4 text-indigo-400" />
+                  <span>Discover Creators</span>
+                </Link>
 
-              <Link
-                href="/briefs"
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/briefs')
-                    ? 'bg-slate-800 text-white shadow-inner'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <FileText className="w-4 h-4 text-cyan-400" />
-                <span>Campaign Briefs</span>
-              </Link>
-            </nav>
+                <Link
+                  href="/briefs"
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive('/briefs')
+                      ? 'bg-slate-800 text-white shadow-inner'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-cyan-400" />
+                  <span>Campaign Briefs</span>
+                </Link>
+              </nav>
+            )}
           </div>
 
           {/* Right Area: Role Dashboards, Demo Account Switcher, User Menu */}
           <div className="hidden md:flex items-center space-x-3">
-            {/* Demo Switcher Quick Actions */}
-            <div className="relative">
-              <button
-                onClick={() => setDemoMenuOpen(!demoMenuOpen)}
-                className="flex items-center space-x-2 text-xs font-medium px-3 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 text-slate-300 hover:border-indigo-500/50 hover:text-white transition-all shadow-sm"
-                title="Switch test persona"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Persona: <strong className="text-white capitalize">{currentRole || 'Guest'}</strong></span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              </button>
-
-              {demoMenuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-56 rounded-xl bg-slate-900 border border-slate-750 shadow-xl shadow-black/60 p-2 z-50 text-xs"
-                  onClick={() => setDemoMenuOpen(false)}
+            {/* Demo Switcher Quick Actions - only when authenticated */}
+            {currentUser && (
+              <div className="relative">
+                <button
+                  onClick={() => setDemoMenuOpen(!demoMenuOpen)}
+                  className="flex items-center space-x-2 text-xs font-medium px-3 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 text-slate-300 hover:border-indigo-500/50 hover:text-white transition-all shadow-sm"
+                  title="Switch test persona"
                 >
-                  <div className="px-2 py-1.5 font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
-                    Switch Test Account
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Persona: <strong className="text-white capitalize">{currentRole || 'Guest'}</strong></span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {demoMenuOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-56 rounded-xl bg-slate-900 border border-slate-750 shadow-xl shadow-black/60 p-2 z-50 text-xs"
+                    onClick={() => setDemoMenuOpen(false)}
+                  >
+                    <div className="px-2 py-1.5 font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
+                      Switch Test Account
+                    </div>
+                    <button
+                      onClick={loginAsDemoBrand}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between transition-colors"
+                    >
+                      <div>
+                        <div className="font-semibold text-white">Brand / Agency</div>
+                        <div className="text-[11px] text-slate-400">Apex Athletics (Post briefs, invite)</div>
+                      </div>
+                      {currentRole === 'brand' && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
+                    </button>
+                    <button
+                      onClick={loginAsDemoCreator}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between mt-1 transition-colors"
+                    >
+                      <div>
+                        <div className="font-semibold text-white">AI Creator</div>
+                        <div className="text-[11px] text-slate-400">Elena Rostova (Portfolio, bids)</div>
+                      </div>
+                      {currentRole === 'creator' && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
+                    </button>
                   </div>
-                  <button
-                    onClick={loginAsDemoBrand}
-                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between transition-colors"
-                  >
-                    <div>
-                      <div className="font-semibold text-white">Brand / Agency</div>
-                      <div className="text-[11px] text-slate-400">Apex Athletics (Post briefs, invite)</div>
-                    </div>
-                    {currentRole === 'brand' && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
-                  </button>
-                  <button
-                    onClick={loginAsDemoCreator}
-                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between mt-1 transition-colors"
-                  >
-                    <div>
-                      <div className="font-semibold text-white">AI Creator</div>
-                      <div className="text-[11px] text-slate-400">Elena Rostova (Portfolio, bids)</div>
-                    </div>
-                    {currentRole === 'creator' && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Authenticated Dashboard Actions */}
             {currentUser ? (
@@ -235,80 +239,104 @@ export default function Navbar() {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-slate-800 bg-slate-900/95 backdrop-blur-xl px-4 py-4 space-y-3">
-          <Link
-            href="/discover"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
-          >
-            Discover Creators
-          </Link>
-          <Link
-            href="/briefs"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
-          >
-            Campaign Briefs
-          </Link>
-
-          {currentRole === 'brand' ? (
+          {currentUser ? (
             <>
               <Link
-                href="/brand/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm text-indigo-400 hover:bg-slate-800 font-medium"
-              >
-                Brand Dashboard & Briefs
-              </Link>
-              <Link
-                href="/brand/shortlist"
+                href="/discover"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
               >
-                Saved Shortlist
+                Discover Creators
               </Link>
+              <Link
+                href="/briefs"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+              >
+                Campaign Briefs
+              </Link>
+
+              {currentRole === 'brand' ? (
+                <>
+                  <Link
+                    href="/brand/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-indigo-400 hover:bg-slate-800 font-medium"
+                  >
+                    Brand Dashboard & Briefs
+                  </Link>
+                  <Link
+                    href="/brand/shortlist"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+                  >
+                    Saved Shortlist
+                  </Link>
+                  <Link
+                    href="/brand/invitations"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+                  >
+                    Invitations & Workflows
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/creator/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-violet-400 hover:bg-slate-800 font-medium"
+                  >
+                    Creator Studio & Profile
+                  </Link>
+                  <Link
+                    href="/creator/portfolio"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+                  >
+                    Portfolio & AI Video Studio
+                  </Link>
+                  <Link
+                    href="/creator/invitations"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+                  >
+                    Received Invitations
+                  </Link>
+                </>
+              )}
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-xs text-slate-400">Persona: {currentRole || 'Guest'}</span>
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-medium hover:bg-rose-500/20"
+                >
+                  Sign Out
+                </button>
+              </div>
             </>
           ) : (
-            <>
+            <div className="space-y-2 pt-2">
               <Link
-                href="/creator/dashboard"
+                href="/login"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm text-violet-400 hover:bg-slate-800 font-medium"
+                className="block text-center px-4 py-2 rounded-lg border border-slate-700 text-sm font-semibold text-slate-200 hover:bg-slate-800"
               >
-                Creator Studio & Profile
+                Log In
               </Link>
               <Link
-                href="/creator/invitations"
+                href="/signup"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800 font-medium"
+                className="block text-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white shadow-md shadow-indigo-600/30"
               >
-                Received Invitations
+                Create Account
               </Link>
-            </>
-          )}
-
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Persona: {currentRole || 'Guest'}</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  loginAsDemoBrand();
-                  setMobileMenuOpen(false);
-                }}
-                className="px-2.5 py-1 rounded bg-slate-800 text-[11px] text-indigo-300 font-semibold"
-              >
-                Switch Brand
-              </button>
-              <button
-                onClick={() => {
-                  loginAsDemoCreator();
-                  setMobileMenuOpen(false);
-                }}
-                className="px-2.5 py-1 rounded bg-slate-800 text-[11px] text-violet-300 font-semibold"
-              >
-                Switch Creator
-              </button>
             </div>
-          </div>
+          )}
         </div>
       )}
     </header>

@@ -7,6 +7,8 @@ import {
   DiscoveryFilterParams,
   PortfolioItem,
   ContentType,
+  ProjectStatus,
+  StatusTransitionRecord,
 } from '@/types';
 import {
   INITIAL_CREATORS,
@@ -549,15 +551,77 @@ export function createInvitation(
   return newInv;
 }
 
-export function updateInvitationStatus(invitationId: string, status: 'accepted' | 'declined'): InvitationItem {
+export interface WorkflowTransitionPayload {
+  projectId: string;
+  targetStatus: ProjectStatus;
+  userId: string;
+  userRole: 'creator' | 'brand' | 'admin';
+  deliverableUrl?: string;
+  deliverableNotes?: string;
+  revisionNotes?: string;
+  note?: string;
+}
+
+export function updateProjectWorkflowStatus(payload: WorkflowTransitionPayload): InvitationItem {
   const list = loadStorage<InvitationItem[]>(STORAGE_KEYS.INVITATIONS, memoryInvitations);
-  const index = list.findIndex((inv) => inv.id === invitationId);
-  if (index === -1) throw new Error(`Invitation ${invitationId} not found`);
+  const index = list.findIndex((inv) => inv.id === payload.projectId);
+  if (index === -1) throw new Error(`Project with ID ${payload.projectId} not found`);
+
+  const current = list[index];
+  const currentStatus = current.status;
+  const target = payload.targetStatus;
+  const role = payload.userRole;
+
+  if (currentStatus === target) {
+    return current;
+  }
+
+  // Validate allowed state transitions per role
+  if (role === 'creator') {
+    const creatorAllowed =
+      (currentStatus === 'invited' && (target === 'accepted' || target === 'declined')) ||
+      (currentStatus === 'accepted' && target === 'in_production') ||
+      (currentStatus === 'in_production' && target === 'delivered') ||
+      (currentStatus === 'revision_requested' && (target === 'in_production' || target === 'delivered'));
+
+    if (!creatorAllowed) {
+      throw new Error(`Creators cannot transition project status from "${currentStatus}" to "${target}".`);
+    }
+  }
+
+  if (role === 'brand') {
+    const brandAllowed =
+      (currentStatus === 'invited' && target === 'cancelled') ||
+      (currentStatus === 'accepted' && target === 'cancelled') ||
+      (currentStatus === 'delivered' && (target === 'approved' || target === 'revision_requested'));
+
+    if (!brandAllowed) {
+      throw new Error(`Brands cannot transition project status from "${currentStatus}" to "${target}".`);
+    }
+  }
+
+  const now = new Date().toISOString();
+  const transitionRecord: StatusTransitionRecord = {
+    from_status: currentStatus,
+    to_status: target,
+    timestamp: now,
+    user_id: payload.userId,
+    user_role: payload.userRole,
+    notes: payload.note || payload.revisionNotes || payload.deliverableNotes,
+  };
+
+  const updatedHistory = [...(current.history || []), transitionRecord];
 
   const updated: InvitationItem = {
-    ...list[index],
-    status,
-    responded_at: new Date().toISOString(),
+    ...current,
+    status: target,
+    history: updatedHistory,
+    ...(payload.deliverableUrl ? { deliverable_url: payload.deliverableUrl } : {}),
+    ...(payload.deliverableNotes ? { deliverable_notes: payload.deliverableNotes } : {}),
+    ...(target === 'delivered' ? { delivered_at: now } : {}),
+    ...(target === 'revision_requested' && payload.revisionNotes ? { revision_notes: payload.revisionNotes } : {}),
+    ...(target === 'approved' ? { approved_at: now } : {}),
+    ...(target === 'accepted' || target === 'declined' ? { responded_at: now } : {}),
   };
 
   list[index] = updated;
@@ -566,45 +630,77 @@ export function updateInvitationStatus(invitationId: string, status: 'accepted' 
   return updated;
 }
 
+export function updateInvitationStatus(
+  invitationId: string,
+  status: ProjectStatus,
+  notes?: string
+): InvitationItem {
+  return updateProjectWorkflowStatus({
+    projectId: invitationId,
+    targetStatus: status,
+    userId: 'system-user',
+    userRole: status === 'approved' || status === 'revision_requested' ? 'brand' : 'creator',
+    note: notes,
+  });
+}
+
 // ==========================================
 // BRIEF MATCHING SUGGESTIONS (DETERMINISTIC)
 // Transparent scoring based on skill, tool,
-// specialization, aspect ratio & commercial terms
+// specialization, budget, turnaround, aspect ratio & commercial terms
 // ==========================================
-export function getMatchingCreatorsForBrief(brief: CreativeBrief): { creator: CreatorProfile; matchScore: number; matchReasons: string[] }[] {
+export interface MatchingCreatorResult {
+  creator: CreatorProfile;
+  matchScore: number;
+  matchReasons: string[];
+  rightsMismatch: boolean;
+  rightsNote?: string;
+}
+
+export function getMatchingCreatorsForBrief(brief: CreativeBrief): MatchingCreatorResult[] {
   const creators = getAllCreators();
   const scored = creators.map((creator) => {
     let score = 0;
     const reasons: string[] = [];
+    let rightsMismatch = false;
+    let rightsNote: string | undefined = undefined;
 
     // 1. Tool overlap (required vs preferred)
     if (brief.required_tools && brief.required_tools.length > 0) {
-      const hasReq = brief.required_tools.some((t) => creator.tools.includes(t));
-      if (hasReq) {
+      const matchReq = brief.required_tools.filter((t) =>
+        creator.tools.map((x) => x.toLowerCase()).includes(t.toLowerCase())
+      );
+      if (matchReq.length > 0) {
         score += 25;
-        reasons.push('Matches required AI tools');
+        reasons.push(`Matches required AI tools: ${matchReq.join(', ')}`);
       }
     }
     if (brief.preferred_tools && brief.preferred_tools.length > 0) {
-      const matchTools = brief.preferred_tools.filter((t) => creator.tools.includes(t));
+      const matchTools = brief.preferred_tools.filter((t) =>
+        creator.tools.map((x) => x.toLowerCase()).includes(t.toLowerCase())
+      );
       if (matchTools.length > 0) {
-        score += matchTools.length * 10;
+        score += matchTools.length * 8;
         reasons.push(`Uses preferred tools: ${matchTools.join(', ')}`);
       }
     }
 
-    // 2. Skill overlap
+    // 2. Skill overlap (required vs preferred)
     if (brief.required_skills && brief.required_skills.length > 0) {
-      const hasReqSkill = brief.required_skills.some((s) => creator.skills.includes(s));
-      if (hasReqSkill) {
+      const matchReqSkill = brief.required_skills.filter((s) =>
+        creator.skills.map((x) => x.toLowerCase()).includes(s.toLowerCase())
+      );
+      if (matchReqSkill.length > 0) {
         score += 20;
-        reasons.push('Demonstrates required production skills');
+        reasons.push(`Demonstrates required production skills: ${matchReqSkill.join(', ')}`);
       }
     }
     if (brief.preferred_skills && brief.preferred_skills.length > 0) {
-      const matchSkills = brief.preferred_skills.filter((s) => creator.skills.includes(s));
+      const matchSkills = brief.preferred_skills.filter((s) =>
+        creator.skills.map((x) => x.toLowerCase()).includes(s.toLowerCase())
+      );
       if (matchSkills.length > 0) {
-        score += matchSkills.length * 8;
+        score += matchSkills.length * 6;
         reasons.push(`Has preferred skills: ${matchSkills.slice(0, 2).join(', ')}`);
       }
     }
@@ -614,36 +710,86 @@ export function getMatchingCreatorsForBrief(brief: CreativeBrief): { creator: Cr
     const hasContentType = portfolio.some((p) => p.media_type === brief.content_type);
     if (hasContentType) {
       score += 15;
-      reasons.push(`Portfolio features ${brief.content_type} deliverables`);
+      reasons.push(`Portfolio features verified ${brief.content_type} deliverables`);
     }
 
     const hasRatio = portfolio.some((p) => p.aspect_ratio === brief.aspect_ratio);
     if (hasRatio) {
       score += 10;
-      reasons.push(`Experienced with ${brief.aspect_ratio} format`);
+      reasons.push(`Proven track record in ${brief.aspect_ratio} aspect ratio`);
     }
 
-    // 4. Commercial-use readiness
-    if (brief.commercial_use_required) {
-      if (creator.commercial_use_stance.toLowerCase().includes('commercial') || creator.commercial_use_stance.toLowerCase().includes('rights')) {
-        score += 15;
-        reasons.push('Clear commercial licensing stance');
+    // 4. Budget Compatibility
+    if (brief.budget_max) {
+      if (creator.starting_rate <= brief.budget_max) {
+        if (creator.starting_rate >= brief.budget_min) {
+          score += 15;
+          reasons.push(`Starting rate ($${creator.starting_rate}) aligns with campaign budget ($${brief.budget_min}–$${brief.budget_max})`);
+        } else {
+          score += 10;
+          reasons.push(`Starting rate ($${creator.starting_rate}) is cost-effective within campaign budget`);
+        }
+      } else {
+        score -= 10;
+        reasons.push(`Budget note: Creator starting rate ($${creator.starting_rate}) exceeds maximum budget ($${brief.budget_max})`);
       }
     }
 
-    // 5. Verification boost
+    // 5. Commercial-use Readiness & Rights Mismatch Detection
+    const stanceLower = creator.commercial_use_stance.toLowerCase();
+    const hasCommercialStance =
+      stanceLower.includes('commercial') ||
+      stanceLower.includes('rights') ||
+      stanceLower.includes('full buyout');
+
+    if (brief.commercial_use_required) {
+      if (hasCommercialStance) {
+        score += 15;
+        reasons.push('Stated commercial licensing clearance policy');
+      } else {
+        rightsMismatch = true;
+        rightsNote = 'Creator commercial use stance does not explicitly cover commercial campaigns.';
+        reasons.push('Warning: Commercial rights clearance needs contract verification');
+      }
+    }
+
+    // Check specific rights tier (broadcast vs editorial only)
+    if (brief.intended_usage_rights === 'broadcast') {
+      const anyEditorialOnly = portfolio.length > 0 && portfolio.every((p) => p.commercial_use_status === 'editorial_only');
+      if (anyEditorialOnly) {
+        rightsMismatch = true;
+        rightsNote = 'Creator deliverables are tagged editorial-only. Broadcast licensing rights must be negotiated.';
+        reasons.push('Rights mismatch: Portfolio assets are editorial-only');
+      } else {
+        reasons.push('Broadcast rights eligible');
+      }
+    }
+
+    // 6. Verification Status (truthful, never falsified)
     if (creator.verification_level === 'verified') {
       score += 10;
-      reasons.push('Verified creator status');
+      reasons.push('Audited and verified AI creator status');
+    } else if (creator.verification_level === 'evidence_submitted') {
+      score += 5;
+      reasons.push('Evidence submitted for commercial verification');
     }
 
-    // 6. Availability
+    // 7. Availability & Turnaround capability
     if (creator.availability === 'available') {
       score += 5;
+      reasons.push('Available for immediate campaign kickoff');
+    } else if (creator.availability === 'busy') {
+      reasons.push(`Schedule notice: Creator currently busy (Turnaround: ${creator.turnaround_time})`);
     }
 
-    return { creator, matchScore: Math.min(100, score), matchReasons: reasons };
+    return {
+      creator,
+      matchScore: Math.max(0, Math.min(100, score)),
+      matchReasons: reasons,
+      rightsMismatch,
+      rightsNote,
+    };
   });
 
-  return scored.filter((s) => s.matchScore > 20).sort((a, b) => b.matchScore - a.matchScore);
+  return scored.filter((s) => s.matchScore > 15).sort((a, b) => b.matchScore - a.matchScore);
 }
