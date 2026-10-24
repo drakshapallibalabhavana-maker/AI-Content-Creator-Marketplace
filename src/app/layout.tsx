@@ -6,6 +6,9 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
+  metadataBase: process.env.NEXT_PUBLIC_APP_URL
+    ? new URL(process.env.NEXT_PUBLIC_APP_URL)
+    : undefined,
   title: 'CreatorConnect AI | Commercial AI Content Creator Marketplace',
   description:
     'Discover, evaluate and commission verified generative AI directors, animators and technical artists with workflow evidence, commercial clearing, and structured briefs.',

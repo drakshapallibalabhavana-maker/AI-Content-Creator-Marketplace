@@ -454,7 +454,7 @@ npm start
 | **Database & Auth** | PostgreSQL with RLS & Authentication | **Supabase** | Ready schema migration at `supabase/migrations/001_initial_schema.sql` and `supabase/seed.sql`. Managed database, secure client library (`@supabase/ssr`), and enterprise RLS policies. |
 | **Media Delivery** | Local assets & CDN | **Vercel Edge Network / Supabase Storage** | Fast partial-content streaming (`HTTP 206`) for commercial video reels and high-resolution visuals. |
 
-> **Note on Backend**: CreatorConnect AI utilizes an integrated monolithic architecture with Next.js App Router Route Handlers (`/api/generate-brief`, `/api/video-status`, `/api/public/creators`, `/api/public/briefs`). A separate Express/Node server is not required. If deploying in a containerized environment (such as Render or AWS ECS), use standard `npm run build && npm start` with Node.js 20+.
+> **Note on Backend**: CreatorConnect AI is a full-stack Next.js application. Its App Router Route Handlers (`/api/generate-brief`, `/api/video-generate`, `/api/video-status`, `/api/public/creators`, and `/api/public/briefs`) deploy with the frontend on Vercel; no separate Render API service is required. If you prefer Render, deploy this whole Next.js application there as a Node.js web service instead of splitting the current codebase into a frontend and backend.
 
 ---
 
@@ -475,23 +475,23 @@ git push origin main
 4. Keep the default build settings:
    - **Framework Preset**: `Next.js`
    - **Root Directory**: `./`
-   - **Build Command**: `next build` (or leave default)
-   - **Output Directory**: `.next` (or leave default)
-   - **Install Command**: `npm install`
+   - **Build Command**: `npm run build` (or leave default)
+   - **Output Directory**: Leave the Vercel default for Next.js
+   - **Install Command**: `npm ci` (or leave default)
 
 #### Step 3: Configure Production Environment Variables in Vercel
 In the Vercel project configuration, expand **Environment Variables** and add:
 
 | Variable Name | Example / Target Value | Required | Description |
 | :--- | :--- | :---: | :--- |
-| `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` | **Yes** | Public canonical URL for OpenGraph and routing |
+| `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` | Optional | Public app URL used as the metadata base |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xyzcompany.supabase.co` | Optional* | Supabase project endpoint (falls back to local store if omitted) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOi...` | Optional* | Client-side public key for Supabase queries |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOi...` | Optional | Server-only admin key (**never prefix with `NEXT_PUBLIC_`**) |
-| `LLM_API_KEY` | `sk-proj-...` | Optional | OpenAI or Gemini API key for dynamic brief generation |
-| `LLM_PROVIDER` | `openai` | Optional | LLM provider identifier (`openai` or `gemini`) |
+| `LLM_API_KEY` | OpenAI API key | Optional | Enables OpenAI-backed AI brief generation; without it, the deterministic parser is used |
+| `REPLICATE_API_TOKEN` | Replicate API token | Optional | Required only for AI video generation |
 
-*\*If Supabase credentials are not provided, the platform automatically runs in reliable demo mode using the verified local store and seed data.*
+*\*Without Supabase credentials, the app uses demo seed data. Demo-mode API writes are not durable across Vercel serverless instances; configure Supabase for persistent production data.*
 
 #### Step 4: Deploy
 Click **Deploy**. Vercel will build the Next.js application, bundle route handlers, optimize images, and deploy your live URL.
@@ -521,4 +521,3 @@ Once deployed, verify the live website against these core checkpoints:
 - [ ] **Authentication & Personas (`/login`)**: Test logging in with demo credentials or using the Quick-Switch persona buttons.
 - [ ] **AI-Assisted Brief Builder (`/brand/briefs/new`)**: Generate a campaign brief using natural language prompt. Verify form auto-population and manual editing.
 - [ ] **Shortlist & Invitations (`/brand/shortlist`, `/creator/invitations`)**: Verify sending campaign invites and responding from the creator dashboard.
-
